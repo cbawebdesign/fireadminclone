@@ -3,7 +3,7 @@ import { DatabaseService } from '../database.service';
 import { Post, PostTranslation, PostStatus } from '../../models/collections/post.model';
 import { now, guid, isFile } from '../../helpers/functions.helper';
 import { StorageService } from '../storage.service';
-import { map, take, mergeMap, finalize } from 'rxjs/operators';
+import { map, take, mergeMap } from 'rxjs/operators';
 import { of, merge, Observable } from 'rxjs';
 import { getEmptyImage, getLoadingImage } from '../../helpers/assets.helper';
 import { SettingsService } from '../settings.service';
@@ -22,7 +22,6 @@ export class PostsService extends DocumentTranslationsService {
     trash: 'danger'
   };
   private imagesCache: object = {};
-  downloadURL: any;
 
   constructor(
     protected db: DatabaseService,
@@ -96,13 +95,10 @@ export class PostsService extends DocumentTranslationsService {
       if (imageFile && isFile(imageFile)) {
         const imageName = guid() + '.' + imageFile.name.split('.').pop();
         const imagePath = `posts/${id}/${imageName}`;
-        // const ref = this.storage.ref(path);
-        // finalize( async() =>  {
-        // this.downloadURL = await ref.getDownloadURL().pipe(take(1)).toPromise();
-        this.storage.upload(imagePath, imageFile).then(() => {
-          this.db.setDocument('posts', id, { image: imagePath}).then(() => {
-
-          // this.db.setDocument('posts', id, { image: imagePath, downloadURL: this.downloadURL }).then(() => {
+        this.storage.upload(imagePath, imageFile).then(async () => {
+          const ref = this.storage.get(imagePath);
+          const downloadURL = await ref.getDownloadURL().pipe(take(1)).toPromise();
+          this.db.setDocument('posts', id, { image: imagePath, downloadURL: downloadURL }).then(() => {
             resolve();
           }).catch((error: Error) => {
             reject(error);
